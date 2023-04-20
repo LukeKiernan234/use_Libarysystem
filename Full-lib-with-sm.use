@@ -1,9 +1,34 @@
 model Library
 
-
-
 enum BookStatus { available, unavailable, onreserve}
 enum CopyStatus { onShelf, onLoan, onReserve}
+
+class Reservation
+    attributes
+        member : Member
+        copy : Copy
+    operations
+        reserve(m : Member, c : Copy)
+        begin
+            if(m.no_reserved = 0) then
+                self.member := m;
+                self.copy := c;
+                insert (c, self) into BeenReserved;
+                insert (m, self) into HasReservation;
+                self.member.reserve(self.copy, self);
+            else
+                WriteLine('You have already reserved a book');
+            end
+        end
+        unreserve()
+        begin
+            delete (self.copy, self) from BeenReserved;
+            delete (self.member, self) from HasReservation;
+            self.member.unreserve(self.copy);
+            self.member := null;
+            self.copy := null;
+        end
+end
 
 class Book
     attributes
@@ -36,6 +61,11 @@ class Book
             self.status := #onreserve
         end
 
+        unreserve()
+        begin
+            self.status := #available
+        end
+
 
         
     
@@ -59,39 +89,37 @@ class Copy
   attributes
         status : CopyStatus init = #onShelf
         book : Book
+        days_onloan : Integer init = 0
 
   operations
     return()
     begin
-        --self.status := #onShelf;
+        self.status := #onShelf;
         self.book.return()
     end
 
-    
+    status()
+    begin
+        WriteLine(self.status.toString())
+    end    
 
     borrow( m : Member)
     begin
-        --self.status := #onLoan;
+        self.status := #onLoan;
         self.book.borrow()
     end
 
     reserve()
     begin
         self.status := #onReserve;
+        WriteLine(self.status.toString());
         self.book.reserve()
     end
-    unreserveBook(title : String)
+
+    unreserve()
     begin
-        for b in Book.allInstances() do
-            if (b.title = title) then
-                WriteLine(b.title);
-                for c in Copy.allInstances() do
-                    if (c.book = b) then
-                        c.return()
-                    end
-                end
-            end
-        end
+        self.status := #onShelf;
+        self.book.unreserve()
     end
     statemachines
         psm States
@@ -105,7 +133,7 @@ class Copy
             onShelf -> onLoan { borrow() }
             onShelf -> onReserve { reserve() }
             onLoan -> onShelf { return() }
-            onReserve -> onShelf { return() }
+            onReserve -> onShelf { unreserve() }
         end
     
     
@@ -116,8 +144,10 @@ class Member
     name : String
     address : String
     no_onloan : Integer
+    no_reserved : Integer;
     status : String
     fine : Integer
+    reservation : Reservation
   operations
     okToBorrow() : Boolean 
     begin
@@ -138,21 +168,25 @@ class Member
     end
 
 
-    reserve(title : String)
+    reserve(c : Copy , r : Reservation)
     begin
-        for b in Book.allInstances() do
-            if (b.title = title) then
-                WriteLine(b.title);
-                for c in Copy.allInstances() do
-                    if (c.book = b) then
-                        c.reserve()
-                    end
-                end
-            end
-        end
+        self.reservation := r;
+        WriteLine(self.no_reserved.toString());
+        self.no_reserved := self.no_reserved + 1;
+        c.reserve();
     end
 
-    
+    unreserve(c : Copy)
+    begin
+        self.no_reserved := self.no_reserved - 1;
+        c.unreserve();
+    end
+
+
+    fine()
+    begin
+        self.fine := self.fine + 5;
+    end 
 
 
 
@@ -160,13 +194,26 @@ class Member
     begin
         declare ok : Boolean;
         ok := self.okToBorrow();
-        if( ok ) then
+        WriteLine('Test');
+        if (self.reservation.copy = c and self.reservation.member = self and ok) then
+            WriteLine('Test2');
+            self.reservation.unreserve();
+            self.reservation:= null;
             insert (self, c) into HasBorrowed;
             self.no_onloan := self.no_onloan + 1;
             WriteLine(self.no_onloan.toString());
-            c.borrow(self)
-            
-        end
+            c.borrow(self);
+        
+        else
+            WriteLine('Test3');
+            if(ok and c.status = #onShelf) then
+                WriteLine('Test4');
+                insert (self, c) into HasBorrowed;
+                self.no_onloan := self.no_onloan + 1;
+                WriteLine(self.no_onloan.toString());
+                c.borrow(self);
+            end;
+        end;
 
     end           
     
@@ -174,13 +221,12 @@ class Member
     begin
         delete (self, c) from HasBorrowed;
         self.no_onloan := self.no_onloan - 1;
-        WriteLine(self.no_onloan.toString());
+        WriteLine(self.no_onloan.toString());   
         c.return()
+
     end
     
 end    
-
-class reserve
 
 association HasBorrowed between
     Member[0..1] role borrower
@@ -191,7 +237,16 @@ association CopyOf between
     Copy[1..*] role copies
     Book[1] role book
 end
-  
+
+association HasReservation between
+    Member[1] role reserver
+    Reservation[1] role reservation
+end
+
+association BeenReserved between
+    Copy[1] role copy
+    Reservation[1] role reservation
+end
 constraints
 
 context Member::borrow(c:Copy) 

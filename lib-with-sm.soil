@@ -12,9 +12,20 @@
 !m1.name := 'John Smith'
 !m1.address := '123 Main Street'
 !m1.no_onloan := 0
+!m1.no_reserved := 0
+
+!new Member('m2')
+!m2.name := 'Jane Doe'
+!m2.address := '456 Main Street'
+!m2.no_onloan := 0
+!m2.no_reserved := 0
 
 !new Copy('c1')
 !c1.book := b1
 
+!new Copy('c2')
+!c2.book := b2
 
-
+!new Reservation('r1')
+!r1.member := m1
+!r1.copy := c1
