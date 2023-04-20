@@ -146,7 +146,7 @@ class Member
     no_onloan : Integer
     no_reserved : Integer;
     status : String
-    fine : Integer
+    fine : Integer init = 0
     reservation : Reservation
   operations
     okToBorrow() : Boolean 
@@ -183,9 +183,10 @@ class Member
     end
 
 
-    fine()
+    Fine()
     begin
         self.fine := self.fine + 5;
+        WriteLine('You are fined $5');
     end 
 
 
@@ -221,7 +222,10 @@ class Member
     begin
         delete (self, c) from HasBorrowed;
         self.no_onloan := self.no_onloan - 1;
-        WriteLine(self.no_onloan.toString());   
+        WriteLine(self.no_onloan.toString());  
+        if(c.days_onloan > 14) then
+            self.Fine();
+        end; 
         c.return()
 
     end
