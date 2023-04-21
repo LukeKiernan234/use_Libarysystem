@@ -257,3 +257,23 @@ context Member::borrow(c:Copy)
     pre limit: self.no_onloan < 2
     pre cond1: self.borrowed->excludes(c)
     post cond2: self.borrowed->includes(c)
+
+context Member::return(c:Copy)
+    pre cond1: self.borrowed->includes(c)
+    post cond2: self.borrowed->excludes(c)
+
+context Member::reserve(c:Copy, r:Reservation)
+    pre cond1: self.no_reserved = 0
+    post cond2 : self.no_reserved = 1
+
+context Member::unreserve(c:Copy)
+    pre cond1: self.no_reserved = 1
+    post cond2 : self.no_reserved = 0
+
+context Copy::reserve()
+    pre cond1: self.status = #onShelf
+    post cond2: self.status = #onReserve
+
+context Copy::unreserve()
+    pre cond1: self.status = #onReserve
+    post cond2: self.status = #onShelf
